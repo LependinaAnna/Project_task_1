@@ -1,0 +1,207 @@
+#define _CRT_SECURE_NO_DEPRECATE
+#define _USE_MATH_DEFINES
+#include <locale.h>
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
+#define M_PI 3.14159265358979323846
+#define MY_EPSILON 1e-9 
+ 
+double calculate_Y(double x, int *error);
+double calculate_V(double x);
+void print_table(double start, double end, double step, int function_choice);
+void print_graph(double xmin, double xmax, double h, int function_choice); 
+ 
+double main()
+{
+    setlocale(LC_ALL, "RUS");
+ 
+    int choice;
+    double x_start, x_end, step;
+ 
+    while (1)
+    {
+        puts("---- МЕНЮ ТАБУЛИРОВАНИЯ ФУНКЦИЙ ----");
+        puts("0. Выход из программы");
+        puts("1. Табулировать функцию Y(x)");
+        puts("2. Табулировать функцию V(x)");
+        puts("Ваш выбор");
+        if (scanf("%d", &choice) != 1) break;
+        if (choice == 0) break;
+       
+        if (choice != 1 && choice != 2)
+        {
+            printf("Неверный выбор! Попробуйте снова.\n\n");
+            continue;
+        }
+ 
+        puts("Введите начало интервала (X_start)");
+        scanf("%lf", &x_start);
+        puts("Введите конец интервала (X_end)");
+        scanf("%lf", &x_end);
+        puts("Введите шаг табуляции (Step > 0)");
+        scanf("%lf", &step);
+       
+        if (step <= 0)
+        {
+            printf("Ошибка: шаг табуляции должен быть строго больше нуля!\n\n");
+            continue;
+        }
+       
+        if (x_start > x_end)
+        {
+            printf("Ошибка: начало интервала должно быть меньше конца!\n\n");
+            continue;
+        }
+       
+        print_table(x_start, x_end, step, choice);
+        puts("\n--- ГРАФИК ФУНКЦИИ ---\n");
+        print_graph(x_start, x_end, step, choice); 
+        puts("\n");
+    }
+   
+    puts("\nПрограмма завершена.");
+    return 0;
+}
+ 
+double calculate_Y(double x, int *error)
+{
+    *error = 0;
+    if (fabs(x) < 1e-13)
+    {
+        *error = 1;
+        return 0.0;
+    }
+    double res, numerator;
+    numerator = 4.0 * cos(M_PI * x) * sin(5.0 * M_PI * x);
+    res = (numerator / x) - x;
+    return res;
+}
+ 
+double calculate_V(double x)
+{
+    if (x < 0.0)
+    {
+        return 3.0 * x + sqrt(1.0 + pow(x, 2.0));
+    }
+    else if (x >= 0.0 && x <= 1.0)
+    {
+        return 2.0 * cos(x) * exp(-2.0 * x);
+    }
+    else
+    {
+        return 2.0 * sin(3.0 * x);
+    }
+}
+ 
+void print_table(double start, double end, double step, int function_choice)
+{
+    puts("\n---------------------------------------");
+    if (function_choice == 1)
+    {
+        puts("    ТАБЛИЦА ЗНАЧЕНИЙ ДЛЯ ФУНКЦИИ Y(x)");
+        puts("---------------------------------------");
+        puts("      X       |         Y(X)         ");
+        puts("---------------------------------------");
+    }
+    else
+    {
+        puts("    ТАБЛИЦА ЗНАЧЕНИЙ ДЛЯ ФУНКЦИИ V(x)");
+        puts("---------------------------------------");
+        puts("      X       |         V(X)         ");
+        puts("---------------------------------------");
+    }
+    for (double x = start; x <= end + (step / 10000.0); x += step)
+    {
+        if (function_choice == 1)
+        {
+            int err;
+            double y_val = calculate_Y(x, &err);
+            if (err)
+            {
+                printf(" %12.4f | точка вне ОДЗ (x=0)\n", x);
+            }
+            else
+            {
+                printf(" %12.4f | %20.10f\n", x, y_val);
+            }
+        }
+        else
+        {
+            double v_val = calculate_V(x);
+            printf(" %12.4f | %20.10f\n", x, v_val);
+        }
+    }
+    puts("---------------------------------------");
+}
+ 
+void print_graph(double xmin, double xmax, double h, int function_choice)
+{
+    int i, j;
+    int n = (int)round((xmax - xmin) / h) + 1;
+    double *y_vals = (double*)malloc(n * sizeof(double));
+    if (y_vals == NULL) return;
+    int *err_vals = (int*)malloc(n * sizeof(int));
+    if (err_vals == NULL) { free(y_vals); return; }
+    double ymin = 1e9, ymax = -1e9;
+    for (i = 0; i < n; i++)
+    {
+        double x = xmin + i * h;
+        err_vals[i] = 0;
+       
+        if (function_choice == 1)
+        {
+            y_vals[i] = calculate_Y(x, &err_vals[i]);
+        }
+        else
+        {
+            y_vals[i] = calculate_V(x);
+        }
+        
+        if (err_vals[i] == 0)
+        {
+            if (y_vals[i] < ymin) ymin = y_vals[i];
+            if (y_vals[i] > ymax) ymax = y_vals[i];
+        }
+    }
+   
+    if (ymax == -1e9)
+    {
+        printf("Невозможно построить график (нет корректных значений ОДЗ).\n");
+        free(y_vals);
+        free(err_vals);
+        return;
+    }
+   
+    double range = ymax - ymin;
+    if (range < MY_EPSILON) range = 1.0;
+ 
+    int graph_width = 40;
+ 
+    for (i = 0; i < n; i++)
+    {
+        double x = xmin + i * h;
+        printf("%8.3lf | ", x);
+       
+        if (err_vals[i] != 0)
+        {
+            printf("Вне ОДЗ\n");
+            continue;
+        }
+       
+        int pos = (int)((y_vals[i] - ymin) / range * graph_width);
+        if (pos < 0) pos = 0;
+        if (pos >= graph_width) pos = graph_width - 1;
+       
+        for (j = 0; j < pos; j++)
+        {
+            printf(" ");
+        }
+        printf("*\n");
+    }
+   
+    free(y_vals);
+    free(err_vals);
+}
